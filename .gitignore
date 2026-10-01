@@ -1,0 +1,7 @@
+# Локальное окружение — не для репозитория
+CLAUDE.md
+.claude/
+local/
+node_modules/
+.DS_Store
+coverage/

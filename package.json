@@ -1,0 +1,19 @@
+{
+  "name": "@telesik/web-commons",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared web code of telesik domino games: modules without a game name, consumed as a git submodule",
+  "type": "module",
+  "license": "CC-BY-4.0",
+  "scripts": {
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.7",
+    "jsdom": "^30.0.1",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.7"
+  }
+}
