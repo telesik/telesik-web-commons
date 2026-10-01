@@ -20,6 +20,7 @@ git-подмодулем (`commons/`), импорт — по пути модул
 | `src/tile-svg.ts` | 0.2.0 (from dofodo) | Domino tiles as SVG: face, back (the game emblem is a parameter), shared gradient/shadow defs, tile placement on the table grid, standalone `<svg>` wrapper for hands and the boneyard |
 | `src/i18n.ts` | 0.2.0 (from dofodo) | Localisation mechanics: `createI18n({ dicts, locales, initial, fallback })` → `L`, `getLocale`, `setLocale`, `detectLocale`; autonym table. Dictionaries and the set of languages belong to the game |
 | `src/howto.ts` | 0.2.0 (from dofodo) | “How to play” frame: slide overlay, first-run question, scene building blocks on tile graphics. Slides, texts and logo belong to the game; CSS classes come from the game's stylesheet |
+| `src/sound.ts` + `src/sounds/` | 0.3.0 (from dofodo) | Domino sounds: tile knock (`normal` / `accent` / `heavy`), boneyard draw, shuffle. Own studio recordings (AAC with a WAV fallback set), WebAudio synthesis until they load; survives closed and stuck audio contexts |
 
 ## Rules for a module · Требования к модулю
 
