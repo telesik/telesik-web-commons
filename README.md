@@ -21,6 +21,11 @@ git-подмодулем (`commons/`), импорт — по пути модул
 | `src/i18n.ts` | 0.2.0 (from dofodo) | Localisation mechanics: `createI18n({ dicts, locales, initial, fallback })` → `L`, `getLocale`, `setLocale`, `detectLocale`; autonym table. Dictionaries and the set of languages belong to the game |
 | `src/howto.ts` | 0.2.0 (from dofodo) | “How to play” frame: slide overlay, first-run question, scene building blocks on tile graphics. Slides, texts and logo belong to the game; CSS classes come from the game's stylesheet |
 | `src/sound.ts` + `src/sounds/` | 0.3.0 (from dofodo) | Domino sounds: tile knock (`normal` / `accent` / `heavy`), boneyard draw, shuffle. Own studio recordings (AAC with a WAV fallback set), WebAudio synthesis until they load; survives closed and stuck audio contexts |
+| `src/engine.ts` | 0.4.0 | The game contract (types only): `GameEngine` — rounds, legal moves, match policy, optional bot; `RoundCore`, `MoveCore`, `RoundResultCore`, `Seat`, `BotSeat`. Shared code knows a game only through it |
+| `src/match.ts` | 0.4.0 (from dofodo) | A match as a series of rounds over `GameEngine`: `startMatch`, `finishRound`, `nextRound`. When the match ends and who starts the next round is the game's decision |
+| `src/replay.ts` | 0.4.0 (from dofodo) | Move protocol and replay over `GameEngine`: `matchProtocol`, `replayRound`, `validateProtocol` — a round is reproduced from its seed and moves |
+| `src/store.ts` | 0.4.0 (from dofodo) | Key–value storage for settings and saves: `KVStore`, `localStore`, quiet `writeJson`, and `matchSave` — a match save in a versioned envelope with game-side validation |
+| `src/viewport.ts` | 0.4.0 (from dofodo) | The table camera on an SVG `viewBox`: drag to pan, wheel and pinch zoom, tweened moves, fitting to content bounds with an on-screen zone to avoid, bringing a point into view |
 
 ## Rules for a module · Требования к модулю
 
