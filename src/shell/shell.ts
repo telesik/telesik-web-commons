@@ -809,7 +809,7 @@ export function initShell<
       selected,
       animateSeq,
       interactive: round.phase !== 'over',
-      game: view.boardFlags?.(),
+      game: view.boardFlags?.(bottomSeat()),
       // Тень, к которой прилипла перетягиваемая кость, выглядит как черновик.
       pending: drag?.snap ?? pending,
       hideSeq: flyingSeq,
@@ -960,7 +960,7 @@ export function initShell<
       selected: null,
       animateSeq: forward && lastMove ? view.placedSeqOf(lastMove, state) : null,
       interactive: false,
-      game: view.boardFlags?.(),
+      game: view.boardFlags?.(bottomSeat()),
     });
     elOverlay.hidden = true;
     renderHistoryBar(rp, total);
