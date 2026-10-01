@@ -42,6 +42,7 @@ export interface RoundCore<M, R, L> {
   /** Применённые ходы по порядку. */
   readonly history: readonly M[];
   readonly result: R | null;
+  /** Журнал раунда: каждый применённый ход оставляет в нём хотя бы одну запись. */
   readonly log: readonly L[];
   readonly hands: readonly [readonly TileId[], readonly TileId[]];
   readonly boneyard: readonly TileId[];
