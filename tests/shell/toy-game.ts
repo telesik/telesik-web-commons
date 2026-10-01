@@ -325,7 +325,7 @@ export function makeView(cfg: ViewConfig = {}): { view: LineView; spy: ViewSpy }
       return true;
     },
     keepFields: ['#inp-hidden'],
-    boardFlags: () => ({ wide: spy.prefs.wide }),
+    boardFlags: (bottom) => ({ wide: spy.prefs.wide, flip: bottom === 1 }),
     settings: () => [{ id: 'wide', on: spy.prefs.wide, text: 'Широкий стол' }],
     setSetting(id, on) {
       if (id === 'wide') spy.prefs.wide = on;

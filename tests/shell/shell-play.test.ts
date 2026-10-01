@@ -74,7 +74,7 @@ describe('каркас: выбор кости и ход по тени', () => {
     expect(m.board.autoFit).toBe(true);
     // Дубль — две тени (два варианта раскладки).
     expect(ghostEls()).toHaveLength(2);
-    expect(m.board.renders.at(-1)!.opts.game).toEqual({ wide: false });
+    expect(m.board.renders.at(-1)!.opts.game).toEqual({ wide: false, flip: false });
   });
 
   it('ход по тени: кость уходит из руки, стук, сохранение, колбэк платформы, полёт клона', () => {
@@ -533,9 +533,12 @@ describe('каркас: бот и внешнее место', () => {
     expect(sound.playShuffle).toHaveBeenCalledTimes(1);
     expect(toastText()).toBe('Первым ходит А');
     expect(m.spy.renders.at(-1)).toMatchObject({ remote: true });
+    // Стол узнаёт, чьё место внизу экрана.
+    expect(m.board.renders.at(-1)!.opts.game).toEqual({ wide: false, flip: true });
     m.app.setRemoteSeat(null);
     expect(q('#hand-bottom .hand-name').textContent).toContain('А');
     expect(m.spy.renders.at(-1)).toMatchObject({ remote: false });
+    expect(m.board.renders.at(-1)!.opts.game).toEqual({ wide: false, flip: false });
   });
 
   it('закрытая рука соперника: рубашки без идентификаторов костей; журнал не называет чужой добор', () => {

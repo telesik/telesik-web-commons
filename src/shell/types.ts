@@ -316,8 +316,8 @@ export interface GameView<S, M, V, R, L, O> {
   loadPrefs(raw: Readonly<Record<string, unknown>>): void;
   /** Игровые настройки для сохранения. */
   dumpPrefs(): Record<string, unknown>;
-  /** Переключатели вида стола — уходят в BoardRenderOptions.game. */
-  boardFlags?(): Readonly<Record<string, boolean>>;
+  /** Переключатели вида стола — уходят в BoardRenderOptions.game. bottom — чьё место внизу экрана. */
+  boardFlags?(bottom: Seat): Readonly<Record<string, boolean>>;
   /** Игровые строки экрана настроек. */
   settings?(): GameSetting[];
   setSetting?(id: string, on: boolean): void;

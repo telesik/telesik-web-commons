@@ -1,0 +1,1809 @@
+/* Общая таблица стилей домино-игр студии — тёмный дзен: войлок, лак,
+   слоновая кость, золото. Каркас приложения (shell.ts) опирается на эти
+   классы; стили собственного стола и кнопок игра дописывает у себя. */
+
+:root {
+  --bg: #0e1412;
+  --panel: #151d19;
+  --panel-2: #1a2420;
+  --felt-1: #20312a;
+  --felt-2: #131d18;
+  --wood-1: #3d3125;
+  --wood-2: #261d15;
+  --ivory: #efe6d0;
+  --ivory-dim: #b9b0a0;
+  --gold: #c9a86a;
+  --gold-soft: rgba(201, 168, 106, 0.45);
+  --verm: #c2543a;
+  --text: #e6ded0;
+  --muted: #97a099;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  /* Без двойного тапа «увеличить»: кнопки обучения стоят на одном месте,
+     быстрые тапы по ним WebKit принимал за зум страницы; щипок отключён
+     в viewport (WKWebView его уважает). */
+  touch-action: manipulation;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  /* Игровой интерфейс — не текст: на touch-устройстве долгое касание — жест
+     прицеливания, и без запрета iOS выделяет подписи стола (цифры концов,
+     бейдж базара) и вешает поверх поля меню Copy / Look Up.
+     Что игрок копирует осознанно, разрешено отдельным блоком ниже. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Исключения из запрета выделения. Поля ввода — обязательно явно: iOS
+   с user-select: none на предке не даёт в самом поле ни курсора, ни
+   выделения. Остальное — то, что копируют: строка версии с хэшем сборки
+   (карточка и бейдж — по ним сообщают о багах), тексты настроек, счётчик
+   позиции в истории ходов (кнопки перемотки — тоже текст-глифы, им
+   выделение вернуло бы ровно тот артефакт, от которого запрет). */
+input,
+textarea,
+#version-badge,
+.card .version-line,
+#settings .card,
+#history-bar .replay-pos {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+#app {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ------------------------------------------------------------------ topbar */
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  /* Вырезы мобильных экранов (чёлка, Dynamic Island): шапка отступает от
+     системных зон; на десктопе env() равен нулю и ничего не меняет. */
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  padding-left: calc(16px + env(safe-area-inset-left, 0px));
+  padding-right: calc(16px + env(safe-area-inset-right, 0px));
+  background: linear-gradient(180deg, #1b2520, #141c18);
+  border-bottom: 1px solid rgba(201, 168, 106, 0.18);
+  min-height: 52px;
+  z-index: 5;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.brand-name {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22px;
+  letter-spacing: 0.12em;
+  color: var(--ivory);
+}
+
+.brand-name::first-letter {
+  color: var(--gold);
+}
+/* Логотип (фигура с иконки) перед именем игры — шапка, карточка, вопрос. */
+.logo {
+  display: inline-block;
+  vertical-align: middle;
+  flex: 0 0 auto;
+}
+.brand-logo {
+  align-self: center;
+}
+h1.title-with-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ask-logo {
+  display: block;
+  margin: 0 auto 10px;
+}
+
+.round-chip {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+.status {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.status-event {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-prompt {
+  font-size: 14px;
+  color: var(--ivory);
+  /* Подсказку хода лучше перенести на вторую строку, чем обрезать
+     многоточием: на планшете экран широкий, а остаток шапки узкий —
+     бренд и ряд значков забирают своё. Две строки влезают
+     в min-height шапки, поэтому на десктопе она не подрастает. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.status-prompt b {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.icon-btn {
+  appearance: none;
+  /* Браузер даёт кнопке собственное поле 1px 6px. При border-box ширина
+     содержимого выходила уже значка, автоматические поля обнулялись,
+     и значок прижимался к левому краю содержимого — то есть вправо
+     относительно кнопки. */
+  padding: 0;
+  background: var(--panel-2);
+  color: var(--ivory-dim);
+  border: 1px solid rgba(201, 168, 106, 0.25);
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.icon-btn:hover {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+/* Кнопки со своим значком-рисунком вместо знака-символа. Обводка берёт
+   currentColor, поэтому подсветка при наведении работает так же. */
+.icon-btn svg {
+  display: block;
+  margin: auto;
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Значок внутри текстовой кнопки: по размеру буквы, на одной строке
+   с подписью. Нужен, чтобы вход в настройки был узнаваем и тогда,
+   когда язык интерфейса игроку прочитать нечем. */
+.btn-ico {
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 0.45em;
+  vertical-align: -0.2em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+
+.lang-select {
+  appearance: none;
+  background: var(--panel-2);
+  color: var(--ivory-dim);
+  border: 1px solid rgba(201, 168, 106, 0.25);
+  border-radius: 8px;
+  height: 34px;
+  padding: 0 8px;
+  /* 16px, не меньше: iOS-автозум фокуса, как у полей ввода. */
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.lang-select:hover {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+/* Выбор соперника на стартовой карточке — выделен как кнопка «Бросить
+   жребий»: при первом запуске его не замечали. */
+.opp-select {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(201, 168, 106, 0.22), rgba(201, 168, 106, 0.1));
+  color: var(--ivory);
+  transition: all 0.15s ease;
+}
+
+.opp-select:hover {
+  color: var(--ivory);
+  background: linear-gradient(180deg, rgba(201, 168, 106, 0.34), rgba(201, 168, 106, 0.16));
+  box-shadow: 0 0 14px rgba(201, 168, 106, 0.25);
+}
+
+/* Селект языка в углу стартовой карточки (дубль настройки из ⚙):
+   язык должен находиться и без чтения текста. */
+.lang-corner {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+}
+
+.icon-btn.active {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: rgba(201, 168, 106, 0.12);
+}
+
+/* -------------------------------------------------------------------- руки */
+
+.hand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 8px 16px;
+  background: linear-gradient(180deg, #16201b, #121a16);
+  min-height: 96px;
+  border-top: 1px solid rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+  transition: box-shadow 0.3s ease, background 0.3s ease;
+  z-index: 4;
+}
+
+/* Нижняя рука упирается в системную зону жестов — отступаем от неё. */
+#hand-bottom {
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+
+.hand.active {
+  /* Панель ходящего подсвечена заметно: деликатный вариант на телефоне
+     не считывался — очередь угадывалась только по значку ☞ (фича 0004). */
+  background: linear-gradient(180deg, #223429, #192720);
+  box-shadow: inset 0 0 0 1px rgba(201, 168, 106, 0.6), inset 0 0 48px rgba(201, 168, 106, 0.16);
+}
+
+.hand-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 130px;
+}
+
+.hand-name {
+  font-family: Georgia, serif;
+  font-size: 16px;
+  color: var(--ivory-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hand.active .hand-name {
+  color: var(--ivory);
+}
+
+.first-chip {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid var(--gold-soft);
+  padding: 1.5px 7px;
+  border-radius: 999px;
+}
+
+/* Общий счёт матча — бейдж у имени игрока. */
+.total-chip {
+  background: var(--panel-2);
+  border: 1px solid rgba(201, 168, 106, 0.35);
+  border-radius: 999px;
+  padding: 1.5px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ivory);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Цель матча в бейдже — «43/100»: приглушена, чтобы
+   свои очки читались первыми; кегль тот же, отдельного правила нет. */
+.total-goal {
+  font-weight: 400;
+  color: var(--ivory-dim);
+}
+
+.hand-sum {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.hand-tiles {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 10px 4px 6px;
+  scrollbar-width: thin;
+  /* Вдоль ряда палец прокручивает руку, поперёк — берёт кость и ведёт её
+     к столу (ход перетягиванием): вертикальный жест браузеру не отдаём. */
+  touch-action: pan-x;
+}
+
+.hand-tile {
+  flex: 0 0 auto;
+  transition: transform 0.16s ease, filter 0.16s ease, opacity 0.2s ease;
+  transform: translateY(0);
+  border-radius: 8px;
+}
+
+.hand-tile.dimmed {
+  opacity: 0.42;
+  filter: saturate(0.7);
+}
+
+.hand-tile.playable {
+  cursor: pointer;
+  transform: translateY(-4px);
+}
+
+.hand-tile.playable:hover {
+  transform: translateY(-9px);
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.55));
+}
+
+.hand-tile.selected {
+  transform: translateY(-11px);
+  filter: drop-shadow(0 0 7px rgba(201, 168, 106, 0.8));
+}
+
+.hand-tile.must {
+  animation: must-pulse 1.4s ease-in-out infinite;
+}
+
+.hand-tile.incoming {
+  visibility: hidden;
+}
+
+@keyframes must-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgba(201, 168, 106, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 11px rgba(201, 168, 106, 0.95));
+  }
+}
+
+.hand-tile.wiggle {
+  animation: wiggle 0.3s ease;
+}
+
+/* Подсветки добранной из базара кости нет намеренно: чужая добранная кость
+   наблюдателю не подсвечивается. */
+
+/* Указатель «чей ход» — рука-манúкула слева от имени активного игрока. */
+.turn-mark {
+  color: var(--gold);
+  font-size: 24px;
+  line-height: 1;
+  display: inline-block;
+  animation: nudge 1.5s ease-in-out infinite;
+  text-shadow: 0 0 8px rgba(201, 168, 106, 0.6);
+}
+
+@keyframes nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+}
+
+/* Панель истории ходов */
+#history-bar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  background: rgba(16, 22, 19, 0.94);
+  border: 1px solid rgba(201, 168, 106, 0.4);
+  border-radius: 12px;
+  padding: 8px 12px;
+  z-index: 15;
+  box-shadow: var(--shadow);
+  max-width: 96%;
+}
+
+#history-bar[hidden] {
+  display: none;
+}
+
+#history-bar select {
+  background: #0f1613;
+  color: var(--ivory);
+  border: 1px solid rgba(201, 168, 106, 0.3);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 16px; /* iOS-автозум фокуса; компактнее нельзя */
+  /* Кэп под кегль 16px: при 210px (подгон под прежние 13px) метка партии
+     «Партия 10 — рыба, 100:100» резалась в 8 локалях из 10. */
+  max-width: 260px;
+}
+
+#replay-slider {
+  width: 170px;
+  accent-color: var(--gold);
+}
+
+.replay-pos {
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 70px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* -------------------------------------------------------------------- стол */
+
+#table {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background:
+    radial-gradient(120% 90% at 50% 35%, var(--felt-1), var(--felt-2) 78%),
+    #101814;
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.55);
+}
+
+#board {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+#board:active {
+  cursor: grabbing;
+}
+
+/* Кости на столе */
+.pip {
+  fill: #322d24;
+}
+
+.just-placed {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: settle 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.15);
+}
+
+@keyframes settle {
+  from {
+    transform: scale(1.12);
+    opacity: 0.2;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Призраки ходов */
+.ghost {
+  cursor: pointer;
+}
+
+.ghost-body {
+  fill: rgba(239, 230, 208, 0.1);
+  stroke: rgba(239, 230, 208, 0.55);
+  stroke-width: 1.4;
+  stroke-dasharray: 7 5;
+  transition: fill 0.12s ease, stroke 0.12s ease;
+}
+
+.ghost-divider {
+  stroke: rgba(239, 230, 208, 0.35);
+  stroke-width: 1;
+}
+
+.ghost-pip {
+  fill: rgba(239, 230, 208, 0.5);
+}
+
+.ghost:hover .ghost-body {
+  fill: rgba(201, 168, 106, 0.28);
+  stroke: var(--gold);
+  stroke-dasharray: none;
+}
+
+.ghost:hover .ghost-pip {
+  fill: rgba(239, 230, 208, 0.9);
+}
+
+.ghost-cross .ghost-body {
+  stroke: rgba(194, 84, 58, 0.8);
+}
+
+.ghost-cross:hover .ghost-body {
+  stroke: #d96a4e;
+  fill: rgba(194, 84, 58, 0.25);
+}
+
+/* ------------------------------------------------------------------- базар */
+
+#boneyard {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 300px;
+  height: 230px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.pile-tile {
+  position: absolute;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 0.18s ease, filter 0.18s ease;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.5));
+}
+
+#boneyard.can-draw .pile-tile {
+  animation: pile-glow 1.8s ease-in-out infinite;
+}
+
+#boneyard.can-draw .pile-tile:hover {
+  transform: translateY(-5px) scale(1.05) rotate(var(--rot)) !important;
+}
+
+@keyframes pile-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 9px rgba(201, 168, 106, 0.7));
+  }
+}
+
+#boneyard.shake {
+  animation: wiggle 0.3s ease;
+}
+
+.pile-count {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  background: rgba(14, 20, 18, 0.75);
+  border: 1px solid rgba(201, 168, 106, 0.25);
+  border-radius: 999px;
+  padding: 3px 10px;
+  pointer-events: none;
+}
+
+.flying-tile {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  transition: transform 0.42s cubic-bezier(0.3, 0.8, 0.4, 1), opacity 0.42s ease;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.6));
+}
+
+/* -------------------------------------------------------------------- тост */
+
+#toast {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(16, 22, 19, 0.92);
+  color: var(--ivory);
+  border: 1px solid rgba(201, 168, 106, 0.35);
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-size: 14px;
+  z-index: 20;
+  box-shadow: var(--shadow);
+  animation: toast-in 0.25s ease;
+  max-width: 74%;
+  text-align: center;
+}
+
+#toast.warn {
+  border-color: rgba(194, 84, 58, 0.6);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ----------------------------------------------------------------- оверлей */
+
+#overlay[hidden],
+#settings[hidden],
+#toast[hidden] {
+  display: none;
+}
+
+/* Экран настроек — поверх всего: и стартовой карточки, и итогов партии. */
+#settings {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 10, 0.72);
+  backdrop-filter: blur(5px);
+  display: flex;
+  z-index: 70;
+  animation: fade-in 0.3s ease;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+#settings .card {
+  margin: auto;
+}
+
+/* Подпись здесь короткая, а поле узкое: колонка в 130px, рассчитанная на
+   имена игроков, отбрасывала бы выбор языка далеко вправо от слова «Язык». */
+#settings .field label {
+  width: auto;
+}
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 10, 0.66);
+  backdrop-filter: blur(5px);
+  /* Центровка карточки — margin:auto у .card, а не align/justify:
+     иначе при низком окне верх карточки обрезается и не прокручивается. */
+  display: flex;
+  z-index: 50;
+  animation: fade-in 0.3s ease;
+  overflow-y: auto;
+  /* Вбок оверлей не скроллится никогда: переполнение по ширине — всегда
+     ошибка вёрстки, и панорамировать карточку игрок не должен (иначе:
+     на телефоне 360px карточка была шире окна и «плавала»). */
+  overflow-x: hidden;
+  padding: 24px;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.card {
+  position: relative; /* якорь для .lang-corner */
+  background: linear-gradient(160deg, #1b2621, #141d18);
+  border: 1px solid rgba(201, 168, 106, 0.3);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 28px 32px;
+  /* 100%, а не vw: ширина считается от контентной области оверлея
+     (за вычетом его паддингов). 94vw их не учитывал, и на узких экранах
+     карточка вылезала за окно — оверлей панорамировался вбок. */
+  width: min(560px, 100%);
+  margin: auto;
+  animation: card-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+}
+
+.card h1,
+.card h2 {
+  font-family: Georgia, 'Times New Roman', serif;
+  color: var(--ivory);
+  margin: 0 0 6px;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+.card h1 {
+  font-size: 30px;
+  letter-spacing: 0.12em;
+}
+
+.card h1 .gold {
+  color: var(--gold);
+}
+
+.card .sub {
+  color: var(--muted);
+  font-size: 13.5px;
+  margin: 0 0 18px;
+  line-height: 1.45;
+}
+
+.card .links-line {
+  margin-top: -12px;
+}
+
+.card .links-line a {
+  color: var(--gold);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--gold-soft);
+  /* На узких экранах ссылки переносятся целиком, а не ломаются посередине. */
+  white-space: nowrap;
+}
+
+/* Ссылка на политику конфиденциальности в настройках. Появляется только
+   в мобильных сборках (opts.privacyUrl): Apple требует ссылку внутри
+   приложения (5.1.1(i)), вебу она не нужна. */
+.card .privacy-line {
+  margin: 14px 0 0;
+}
+
+/* Строка-действие платформы (extraActions) выглядит как остальные
+   ссылки карточки, а не как синяя ссылка браузера. */
+.card .privacy-line a,
+.card .action-line a {
+  color: var(--gold);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--gold-soft);
+}
+
+.card .action-line {
+  margin: 14px 0 0;
+}
+
+/* Действие платформы внизу стартовой карточки: ghost-кнопка во всю
+   ширину над строкой версии — последняя кнопка карточки, отдельно
+   от кнопок партии. */
+.btn-row.action-row > .btn {
+  flex: 1 1 auto;
+}
+
+/* Ряд «Бросить жребий / Начать матч» заполняет ширину карточки: кнопки
+   растут поровну, при переносе занимают всю свою строку. */
+.btn-row.start-row > .btn {
+  flex: 1 1 auto;
+}
+
+/* Итоги партии: «Бросить матч» и «История ходов» — всегда одним рядом
+   поровну, подпись в одну строку без переносов внутри кнопки. Самые длинные
+   подписи — it «Cronologia delle mosse» (155 px при 14 px), es, fr, pt
+   (131–142 px); на телефоне кнопке достаётся ~152 px, поэтому на узких
+   экранах кегль 12 px и отступы 8 px — замер 20.09 на 375 px. */
+.btn-row.review-row {
+  flex-wrap: nowrap;
+}
+
+.btn-row.review-row > .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: 10px;
+  padding-right: 10px;
+  white-space: nowrap;
+}
+
+@media (max-width: 430px) {
+  .btn-row.review-row > .btn {
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+/* Версия внизу карточки: бейдж в углу экрана стартовая карточка накрывает
+   собой, а знать сборку игроку надо до начала партии. Размер и приглушённость
+   как у бейджа — это подпись, а не часть настроек партии. */
+.card .version-line {
+  margin: 16px 0 0;
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  /* Приглушён только текст (значение --muted на 60%), а не вся строка через
+     opacity: ссылка «правила» должна оставаться полной яркости, как ссылки
+     под слоганом. rgba, а не color-mix — WebView
+     iOS 15 (минимум сторовой сборки) color-mix не знает. */
+  color: rgba(151, 160, 153, 0.6);
+  text-align: center;
+}
+
+/* Слово «правила» в строке версии — ссылка на текст правил (как в бейдже). */
+.card .version-line a {
+  color: var(--gold);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--gold-soft);
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.field label {
+  width: 130px;
+  color: var(--ivory-dim);
+  font-size: 14px;
+}
+
+/* Цель матча: ряд радиокнопок 50/100/150/200; на узких экранах
+   ряд переносится, а не вылезает за карточку. */
+.target-opts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.target-opts .check {
+  margin: 0;
+  white-space: nowrap;
+  /* Радио-метки — тоже label внутри .field: без сброса они наследуют
+     колонку 130px подписи поля и разъезжаются на всю карточку. */
+  width: auto;
+}
+
+.field input[type='text'] {
+  flex: 1;
+  background: #0f1613;
+  color: var(--ivory);
+  border: 1px solid rgba(201, 168, 106, 0.3);
+  border-radius: 8px;
+  padding: 9px 12px;
+  /* Не меньше 16px: iOS зумит страницу при фокусе на контроле с меньшим
+     кеглем и НЕ возвращает масштаб после клавиатуры — страница остаётся
+     увеличенной и панорамируется. */
+  font-size: 16px;
+  outline: none;
+}
+
+.field input[type='text']:focus {
+  border-color: var(--gold);
+}
+
+.check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 14px 0;
+  color: var(--ivory-dim);
+  font-size: 13.5px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.check input {
+  margin-top: 2px;
+  accent-color: var(--gold);
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--gold);
+  background: linear-gradient(180deg, rgba(201, 168, 106, 0.22), rgba(201, 168, 106, 0.1));
+  color: var(--ivory);
+  font-size: 15px;
+  border-radius: 10px;
+  padding: 11px 22px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: all 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(201, 168, 106, 0.34), rgba(201, 168, 106, 0.16));
+  box-shadow: 0 0 14px rgba(201, 168, 106, 0.25);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn.ghost-btn {
+  border-color: rgba(201, 168, 106, 0.3);
+  background: transparent;
+  color: var(--ivory-dim);
+}
+
+.btn.ghost-btn:hover {
+  color: var(--ivory);
+  border-color: var(--gold);
+}
+
+.btn-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Узкий телефонный экран: кнопки ужимаются, чтобы «Бросить жребий» +
+   «Начать матч» вставали в один ряд и в «длинных» языках (ru, es, uk).
+   Порог 430px с запасом покрывает ходовые 360–414. */
+@media (max-width: 430px) {
+  .btn {
+    font-size: 14px;
+    padding: 10px 14px;
+  }
+
+  .btn-row {
+    gap: 10px;
+  }
+
+  /* Узкий экран: боковые поля оверлея меньше — карточке достаётся
+     больше ширины, а панорамировать её всё равно нельзя. */
+  #overlay {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .card {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}
+
+/* Жребий */
+.lot-row {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  align-items: center;
+  margin: 18px 0 6px;
+  min-height: 84px;
+}
+
+/* До броска зона пуста — не резервировать под неё высоту: на узких
+   экранах пустые ~110px читаются как дыра в карточке. */
+.lot-row:empty {
+  min-height: 0;
+  margin: 0;
+}
+
+/* Невысокие вьюпорты (телефон с плотной сеткой: Samsung 480dpi даёт всего
+   ~725 CSS px между барами) — карточка с брошенным жребием обязана
+   влезать целиком, иначе оверлей скроллится и низ срезан.
+   Режем воздух, не контент: паддинги оверлея/карточки и вертикальные
+   отступы; min-height жребия не нужен вовсе — кости и так 66px. */
+@media (max-height: 760px) {
+  #overlay {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .card {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .lot-row {
+    margin: 4px 0 0;
+    min-height: 0;
+  }
+
+  /* Кости жребия чуть меньше: и они, и подписи остаются читаемыми,
+     а карточка обязана влезать даже с блоком сохранённого матча. */
+  .lot-row svg {
+    height: 36px;
+    width: auto;
+  }
+
+  .lot-side {
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .sep {
+    margin: 6px 0;
+  }
+
+  .btn-row {
+    margin-top: 8px;
+  }
+
+  .version-line {
+    margin-top: 4px;
+  }
+}
+
+.lot-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.lot-side.win {
+  color: var(--gold);
+}
+
+.lot-tile {
+  transition: transform 0.4s ease;
+}
+
+.lot-result {
+  text-align: center;
+  min-height: 22px;
+  color: var(--ivory);
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.lot-result b {
+  color: var(--gold);
+}
+
+/* Итоги партии */
+.result-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 18px;
+  margin: 14px 0;
+  align-items: center;
+}
+
+.result-name {
+  font-family: Georgia, serif;
+  font-size: 16px;
+  color: var(--ivory);
+}
+
+.result-tiles {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin: 2px 0 10px;
+  grid-column: 1 / -1;
+}
+
+.result-pts {
+  font-size: 15px;
+  color: var(--ivory-dim);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.result-pts b {
+  color: var(--ivory);
+  font-size: 18px;
+}
+
+.result-pts .plus {
+  color: var(--verm);
+  font-weight: 600;
+}
+
+.result-pts .zero {
+  color: #7fae8e;
+  font-weight: 600;
+}
+
+.result-note {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 8px 0 0;
+  line-height: 1.45;
+}
+
+/* Без капса: «Партия 1 (матч до 100)» как обычный текст: капс
+   съедал разницу регистров и кричал на карточке. */
+.match-round {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  margin: 14px 0 0;
+}
+
+.match-score {
+  text-align: center;
+  font-family: Georgia, serif;
+  font-size: 22px;
+  color: var(--ivory);
+  margin: 2px 0 4px;
+  letter-spacing: 0.06em;
+}
+
+hr.sep {
+  border: none;
+  border-top: 1px solid rgba(201, 168, 106, 0.18);
+  margin: 16px 0;
+}
+
+/* -------------------------------------------------------------- бейдж версии */
+
+#version-badge {
+  position: fixed;
+  right: calc(10px + env(safe-area-inset-right, 0px));
+  bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+  pointer-events: auto;
+}
+
+#version-badge:hover {
+  opacity: 1;
+}
+
+#version-badge a {
+  color: var(--gold);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--gold-soft);
+}
+
+/* ----------------------------------------------------------------- подсказки */
+
+[data-tip] {
+  position: relative;
+}
+
+[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(14, 20, 17, 0.97);
+  color: var(--ivory);
+  border: 1px solid rgba(201, 168, 106, 0.45);
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  /* Страховка от вылета за экран: не шире вьюпорта без системных
+     вырезов. */
+  max-width: min(
+    320px,
+    calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))
+  );
+  white-space: normal;
+  width: max-content;
+  text-align: center;
+  z-index: 120;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  animation: fade-in 0.15s ease;
+}
+
+/* У правого края шапки подсказку прижимаем вправо, чтобы не резалась. */
+#topbar [data-tip]:hover::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+/* Узкие экраны: ряд кнопок шапки почти во всю ширину, и привязанная
+   к кнопке подсказка уходила за край экрана. Здесь кнопка
+   становится static, и подсказка привязывается к контейнеру — шапке,
+   панели руки (обе получают position) или панели истории (она и так
+   absolute, ей position не нужен): укладываясь в полосу контейнера
+   по ширине, за экран она выйти не может. */
+@media (max-width: 700px) {
+  /* z-index: шапка (5) и руки (4) — flex-элементы #app и потому
+     стекинг-контексты; подсказка внутри них ныряла бы под панели
+     стола (обучение 14, история и подтверждение 15, тост 20).
+     Поднимаем контейнеры над панелями, сохраняя «шапка выше рук»
+     (иначе подсказку шапки накрыла бы верхняя рука — при равных
+     z-index побеждает поздний в документе); оверлей (50) и бейдж
+     версии (30) остаются выше. */
+  #topbar {
+    position: relative;
+    z-index: 22;
+  }
+
+  .hand {
+    position: relative;
+    z-index: 21;
+  }
+
+  #topbar [data-tip],
+  #history-bar [data-tip],
+  .hand [data-tip] {
+    position: static;
+  }
+
+  /* Отступ сверху приходит из базового правила; подсказка центрируется
+     от контейнера (все три центрированы по экрану) и клэмпится шириной
+     вьюпорта. Правило «прижать вправо» для шапки здесь перекрывается.
+     Намеренно НЕ «left:10px; right:10px» с width:max-content: такая
+     сверхзаданность (left+right+width) разрешается по-разному —
+     Blink центрует подсказку в полосе, а WebKit игнорирует right
+     и max-width от контейнера, и полоса уезжает за правый край
+     экрана (живой iPhone и симулятор). Центр + клэмп
+     по 100vw однозначны в обоих движках. */
+  #topbar [data-tip]:hover::after,
+  #history-bar [data-tip]:hover::after,
+  .hand [data-tip]:hover::after {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    max-width: calc(
+      100vw - 20px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)
+    );
+  }
+
+  /* Нижняя рука прижата к низу экрана — её подсказка открывается
+     вверх, над панелью; у верхней руки и шапки место есть снизу. */
+  #hand-bottom [data-tip]:hover::after {
+    top: auto;
+    bottom: calc(100% + 9px);
+  }
+}
+
+/* --------------------------------------------------------------- адаптация */
+
+/* Мобильная (портретная) адаптация. Десктоп эти правила не трогают. */
+@media (max-width: 700px) {
+  #topbar {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    padding: 6px 10px;
+    padding-top: calc(6px + env(safe-area-inset-top, 0px));
+    padding-left: calc(10px + env(safe-area-inset-left, 0px));
+    padding-right: calc(10px + env(safe-area-inset-right, 0px));
+    min-height: 0;
+  }
+
+  .brand-name {
+    font-size: 17px;
+  }
+
+  .round-chip {
+    display: none;
+  }
+
+  /* Статус переезжает на собственную строку шапки. */
+  .status {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .status-event {
+    display: none;
+  }
+
+  .status-prompt {
+    font-size: 13px;
+    white-space: normal;
+    /* На телефоне статус занимает свою строку шапки целиком — здесь
+       длинному переводу с длинным именем можно и три строки. */
+    -webkit-line-clamp: 3;
+  }
+
+  .topbar-right {
+    margin-left: auto;
+    gap: 5px;
+  }
+
+  .icon-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 15px;
+  }
+
+  .lang-select {
+    height: 30px;
+    /* Кегль не опускаем ниже 16px и на узких экранах — iOS-автозум; компактность добираем паддингом. */
+    font-size: 16px;
+    padding: 0 4px;
+  }
+
+  /* Рука: имя и сумма в одну строку сверху, кости под ними. */
+  .hand {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    min-height: 0;
+    padding: 5px 10px 7px;
+  }
+
+  #hand-bottom {
+    padding-bottom: calc(7px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .hand-meta {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .hand-name {
+    font-size: 14px;
+    gap: 6px;
+  }
+
+  .turn-mark {
+    font-size: 19px;
+  }
+
+  .first-chip {
+    font-size: 9px;
+    padding: 1px 5px;
+    letter-spacing: 0.05em;
+  }
+
+  .total-chip {
+    font-size: 11px;
+    padding: 1px 7px;
+  }
+
+  .hand-sum {
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .hand-tiles {
+    gap: 5px;
+    padding: 6px 2px 2px;
+  }
+
+  /* Куча базара: та же раскладка, но ужата целиком. */
+  #boneyard {
+    right: 4px;
+    bottom: 4px;
+    transform: scale(0.6);
+    transform-origin: 100% 100%;
+  }
+
+  #history-bar {
+    top: 6px;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  #replay-slider {
+    width: 110px;
+  }
+
+  .card {
+    padding: 18px 16px;
+  }
+
+  .field label {
+    width: 105px;
+    font-size: 13px;
+  }
+
+  #version-badge {
+    font-size: 9px;
+    right: calc(6px + env(safe-area-inset-right, 0px));
+    bottom: calc(2px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* ------------------------------------------------- обучение и подтверждение */
+
+#tutor-bar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Без явной ширины панель сжималась ровно до половины стола: у absolute
+     с left: 50% ширина по содержимому считается от остатка справа, и текст
+     вытягивался в узкий высокий столбик. */
+  width: max-content;
+  max-width: min(720px, 94%);
+  /* Матовое стекло вместо глухого фона: под панелью видно дерево,
+     а текст остаётся читаемым. */
+  background: rgba(16, 22, 19, 0.72);
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(201, 168, 106, 0.4);
+  border-radius: 12px;
+  padding: 8px 14px;
+  z-index: 14;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(239, 230, 208, 0.92);
+  /* Панель только рассказывает — тапы уходят столу под ней, иначе на
+     телефоне она накрывает тень корневого хода и ход не поставить. */
+  pointer-events: none;
+}
+/* Галочка «показывать правила игры» — единственное, что в панели ловит тап. */
+#tutor-bar .tutor-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--muted);
+  pointer-events: auto;
+  cursor: pointer;
+  width: max-content;
+}
+#tutor-bar .tutor-toggle input {
+  accent-color: var(--gold);
+  margin: 0;
+}
+
+#tutor-bar[hidden] {
+  display: none;
+}
+
+#confirm-bar {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(16, 22, 19, 0.94);
+  border: 1px solid var(--gold-soft);
+  border-radius: 12px;
+  padding: 8px 12px;
+  z-index: 15;
+  box-shadow: var(--shadow);
+  max-width: 94%;
+}
+
+#confirm-bar[hidden] {
+  display: none;
+}
+
+.confirm-q {
+  font-size: 14px;
+  color: rgba(239, 230, 208, 0.95);
+}
+
+.confirm-btn {
+  border: 1px solid var(--gold-soft);
+  background: rgba(201, 168, 106, 0.12);
+  color: var(--gold);
+  border-radius: 9px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.confirm-btn.yes {
+  background: rgba(201, 168, 106, 0.28);
+  border-color: var(--gold);
+}
+
+.confirm-btn:hover {
+  background: rgba(201, 168, 106, 0.35);
+}
+
+/* Черновик хода: тень выбрана и ждёт подтверждения. */
+.ghost.pending .ghost-body {
+  fill: rgba(201, 168, 106, 0.3);
+  stroke: var(--gold);
+  stroke-dasharray: none;
+  stroke-width: 2;
+}
+
+.ghost.pending .ghost-pip {
+  fill: rgba(239, 230, 208, 0.85);
+}
+
+@media (max-width: 700px) {
+  #tutor-bar {
+    top: 6px;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  #confirm-bar {
+    bottom: 8px;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .confirm-q {
+    font-size: 13px;
+  }
+}
+
+/* Подсказка режима обучения на стартовом экране */
+.card .tutor-hint {
+  margin: 2px 0 10px;
+  padding: 8px 12px;
+  border-left: 2px solid var(--gold-soft);
+  background: rgba(201, 168, 106, 0.07);
+  border-radius: 0 8px 8px 0;
+}
+
+/* ------------------------------------------------ последняя кость и полёт */
+
+/* Кость на столе скрыта, пока к месту летит её клон. */
+.placed.incoming {
+  visibility: hidden;
+}
+
+/* Кольцо последней выставленной кости: заметить мгновенный ход (бота). */
+.last-ring {
+  fill: none;
+  stroke: var(--gold-soft);
+  stroke-width: 2;
+  pointer-events: none;
+  animation: last-ring-in 0.5s ease;
+}
+
+@keyframes last-ring-in {
+  from {
+    stroke: var(--gold);
+    stroke-width: 3.5;
+  }
+}
+
+/* Летящая на стол кость управляется по кадрам — CSS-переход не нужен. */
+.flying-tile.fly-place {
+  transition: none;
+  transform-origin: 44px 22px;
+}
+
+/* Кость под пальцем (ход перетягиванием): за пальцем идёт почти без
+   задержки, на тень встаёт коротким доводом, в руку возвращается плавно. */
+.flying-tile.drag-tile {
+  transform-origin: 44px 22px;
+  transition: transform 0.05s linear;
+  will-change: transform;
+}
+
+.flying-tile.drag-tile.snapped {
+  transition: transform 0.12s ease-out;
+}
+
+.flying-tile.drag-tile.returning {
+  transition: transform 0.2s ease;
+}
+
+/* Страховка от iOS-автозума для будущих контролов: фокус на контроле
+   с кеглем <16px зумит страницу, и WKWebView не возвращает масштаб
+   после клавиатуры/пикера (диагностирован watch-метриками
+   на живом iPhone 15.08.2026: vvScale залипал на 16/15 ≈ 1.066).
+   Специфичные классы выше уже держат 16px — это правило ловит
+   безклассовые контролы, которые появятся позже. */
+input[type='text'],
+select {
+  font-size: 16px;
+}
+
+/* Договор о следующей партии: состояние — на самой кнопке.
+   Ждём соперника — кнопка гаснет мягче обычного disabled и «дышит»
+   точками; соперник готов — кнопка активна и подсвечена. */
+.btn.waiting:disabled {
+  opacity: 0.7;
+}
+.btn.waiting::after {
+  content: '';
+  display: inline-block;
+  width: 1.1em;
+  text-align: left;
+  animation: wait-dots 1.2s steps(1, end) infinite;
+}
+@keyframes wait-dots {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
+.btn.peer-ready {
+  border-color: var(--gold, #d9b56a);
+  box-shadow: 0 0 0 2px rgba(217, 181, 106, 0.25);
+}
+
+/* «Как играть»: слайды поверх стартовой карточки, ниже настроек. */
+#howto {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 10, 0.72);
+  backdrop-filter: blur(5px);
+  display: flex;
+  z-index: 68;
+  animation: fade-in 0.3s ease;
+  overflow-y: auto;
+  padding: 16px;
+}
+#howto .howto-card {
+  width: min(440px, 100%);
+  padding: 20px 22px 18px;
+  position: relative;
+}
+/* Крестик — прервать показ, не листая до конца. */
+.howto-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 26px;
+  line-height: 36px;
+  cursor: pointer;
+  padding: 0;
+}
+.howto-close:hover {
+  color: var(--text);
+}
+/* Вопрос при первом запуске: маленькая карточка поверх стартовой. */
+#howto-ask {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 10, 0.55);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 68;
+  animation: fade-in 0.3s ease;
+  padding: 16px;
+}
+#howto-ask .howto-ask {
+  width: min(360px, 100%);
+  padding: 20px 22px 16px;
+  text-align: center;
+}
+#howto-ask p {
+  margin: 0 0 14px;
+  font-size: 18px;
+}
+.howto-ask-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.howto-ask-row .btn {
+  flex: 1 1 0;
+}
+#howto h1 {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+.howto-kicker {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.howto-scene {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 6px;
+  margin: 6px 0 14px;
+}
+.howto-svg {
+  display: block;
+}
+#howto p {
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+.howto-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+.howto-dots span {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold-soft);
+  margin-right: 6px;
+}
+.howto-dots span.on {
+  background: var(--gold);
+}
+.howto-ghost {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.howto-next {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(201, 168, 106, 0.2);
+}
+.card .links-line a.howto-link {
+  cursor: pointer;
+}
+#howto a {
+  color: var(--gold);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+
+/* Tip jar платформенной надстройки: вид оверлея и тоста — здесь, геометрию
+   (позиция, центровка) надстройка задаёт inline. z-index 80 — выше настроек
+   (70) и лобби (50): оверлей открывается из настроек и обязан лечь поверх. */
+.tip-jar-overlay {
+  z-index: 80;
+  background: rgba(10, 14, 12, 0.72);
+}
+
+.tip-jar-toast {
+  z-index: 80;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  background: rgba(40, 28, 16, 0.94);
+  color: #e0b090;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
