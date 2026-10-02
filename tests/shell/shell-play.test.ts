@@ -453,6 +453,52 @@ describe('каркас: автопас', () => {
   });
 });
 
+describe('каркас: пауза ввода', () => {
+  const myTurn = (): ReturnType<typeof matchOf> =>
+    matchOf(roundOf({ hands: [['6-5', '2-2'], ['5-4', '4-4']], boneyard: ['5-5'] }));
+
+  it('на паузе своё место не ходит: рука не приглашает, клики и добор глухи, dispatch применяется', () => {
+    const m = resume(myTurn());
+    expect(has('.hand-tile.playable')).toBe(true);
+    m.app.setInputHold(true);
+    expect(has('.hand-tile.playable')).toBe(false);
+    click(tile('6-5'));
+    expect(has('.hand-tile.selected')).toBe(false);
+    click(q('[data-pile]'));
+    expect(toastText()).toBe('Сейчас тянуть нельзя');
+    expect(hist(m)).toEqual([]);
+    // Ход своего же места, пришедший извне (догон после сверки), применяется.
+    m.app.dispatch({ type: 'place', tile: '6-5' });
+    expect(hist(m)).toHaveLength(1);
+  });
+
+  it('пауза снята — рука снова приглашает', () => {
+    const m = resume(myTurn());
+    m.app.setInputHold(true);
+    m.app.setInputHold(false);
+    expect(has('.hand-tile.playable')).toBe(true);
+    m.board.hooks!.onMove({ type: 'place', tile: '6-5' });
+    expect(hist(m)).toHaveLength(1);
+  });
+
+  it('пас на паузе сам не разыгрывается; после снятия — как обычно', () => {
+    const m = resume(matchOf(roundOf({ hands: [['2-1'], ['5-4', '4-4']], end: 5, boneyard: [] })));
+    m.app.setInputHold(true);
+    vi.advanceTimersByTime(5000);
+    expect(hist(m)).toEqual([]);
+    m.app.setInputHold(false);
+    vi.advanceTimersByTime(1300);
+    expect(hist(m)).toEqual([{ type: 'pass' }]);
+  });
+
+  it('матч с внешним игроком начинается без паузы', () => {
+    const m = resume(myTurn());
+    m.app.setInputHold(true);
+    m.app.startRemoteMatch({ names: ['А', 'Б'], first: 0, variant: m.app.getMatch()!.variant, seed: 7, remoteSeat: 1 });
+    expect(has('.hand-tile.playable')).toBe(true);
+  });
+});
+
 describe('каркас: бот и внешнее место', () => {
   const withBot = (): ReturnType<typeof matchOf> =>
     matchOf(roundOf({ hands: [['6-5', '2-2'], ['5-4', '4-4']], boneyard: ['5-5'], seed: 3 }), {
