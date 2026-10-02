@@ -378,6 +378,11 @@ export function initShell<
    * handle.dispatch, локальный ввод в его ход заблокирован.
    */
   let remoteSeat: Seat | null = null;
+  /**
+   * Пауза локального ввода (setInputHold): пока она стоит, ни одно место за
+   * этим экраном не ходит — ходы приходят только через handle.dispatch.
+   */
+  let inputHold = false;
   /** Договор о следующем раунде с внешним игроком (см. AppHandle). */
   let nextRoundWait: NextRoundWait | null = null;
 
@@ -408,17 +413,16 @@ export function initShell<
   }
 
   /**
-   * Сейчас ход не человека за этим экраном (бот или внешнее место): клики по
-   * игровым элементам недоступны.
+   * Сейчас ход не человека за этим экраном (бот, внешнее место или пауза
+   * ввода): клики по игровым элементам недоступны.
    */
   function notMyTurn(): boolean {
     if (botsTurnNow()) return true;
     return (
       !replay &&
       !!match &&
-      remoteSeat !== null &&
       match.round.phase !== 'over' &&
-      match.round.current === remoteSeat
+      (inputHold || (remoteSeat !== null && match.round.current === remoteSeat))
     );
   }
 
@@ -880,6 +884,8 @@ export function initShell<
     // Пас внешнего места не разыгрывается локально — он придёт через dispatch,
     // иначе обе стороны отправили бы его одновременно.
     if (remoteSeat !== null && round.current === remoteSeat) return;
+    // На паузе ввода пас сам не разыгрывается: он тоже локальный ход.
+    if (inputHold) return;
     const only = legal.length === 1 ? legal[0]! : null;
     if (only && view.moveKind(only) === 'pass') {
       // Тост показываем один раз, но таймер перезаводим при каждом рендере:
@@ -1191,6 +1197,7 @@ export function initShell<
     const first = lotFirst!;
     const bot = botLevel ? { player: 1 as const, level: botLevel } : null;
     remoteSeat = null;
+    inputHold = false;
     opts.onMatchReset?.();
     beginRound(startMatch(engine, { names: [n0, n1], first, variant, bot }), {
       toast: (m) => T().toastFirstOpen(m.names[first]),
@@ -1248,6 +1255,7 @@ export function initShell<
     replay = null;
     pending = null;
     remoteSeat = null;
+    inputHold = false;
     nextRoundWait = null;
     store.remove(LS_KEY);
     opts.onMatchReset?.();
@@ -1957,8 +1965,13 @@ export function initShell<
       remoteSeat = seat;
       renderAll();
     },
+    setInputHold(hold) {
+      inputHold = hold;
+      renderAll();
+    },
     startRemoteMatch(o) {
       remoteSeat = o.remoteSeat;
+      inputHold = false;
       beginRound(
         startMatch(engine, { names: o.names, first: o.first, variant: o.variant, seed: o.seed, bot: null }),
         { toast: (m) => T().toastFirstOpen(m.names[o.first]) },
