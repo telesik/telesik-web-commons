@@ -4,6 +4,10 @@ import { defineConfig } from 'vitest/config';
 // ветви, функции. Порог блокирующий: ниже 100 — модуль в пакет не попадает.
 export default defineConfig({
   test: {
+    // Node 25+ подставляет свой глобальный localStorage (Web Storage; без
+    // --localstorage-file — undefined), и он перекрывает localStorage jsdom —
+    // выключаем там, где он есть (telesik/telesik-team#453).
+    poolOptions: { forks: { execArgv: 'localStorage' in globalThis ? ['--no-experimental-webstorage'] : [] } },
     include: ['tests/**/*.test.ts'],
     coverage: {
       provider: 'v8',
