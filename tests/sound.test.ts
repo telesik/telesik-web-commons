@@ -413,6 +413,23 @@ describe('sound.ts — платформенные фолбэки звука', ()
     expect(second.started.length).toBe(1);
   });
 
+  it('застрявшие контексты при замене закрываются — не копятся до предела системы', async () => {
+    SampleAudioContext.bufs = wavBufs();
+    const mod = await loadSound(2);
+    // Звуки сериями вне жеста пользователя: каждый новый контекст тоже застревает.
+    const stick = (c: FakeAudioContext): void => {
+      c.state = 'interrupted';
+      c.resume = () => Promise.resolve();
+    };
+    stick(FakeAudioContext.instances[0]!);
+    for (let i = 0; i < 8; i++) {
+      mod.playPlace('normal');
+      stick(FakeAudioContext.instances.at(-1)!);
+    }
+    expect(FakeAudioContext.instances.length).toBeGreaterThan(2);
+    expect(FakeAudioContext.instances.filter((c) => c.state !== 'closed')).toHaveLength(1);
+  });
+
   it('живой running-контекст серией звуков не пересоздаётся', async () => {
     SampleAudioContext.bufs = wavBufs();
     const mod = await loadSound(2);
