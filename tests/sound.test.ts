@@ -430,6 +430,38 @@ describe('sound.ts — платформенные фолбэки звука', ()
     expect(FakeAudioContext.instances.filter((c) => c.state !== 'closed')).toHaveLength(1);
   });
 
+  it('возврат из фона: застрявший контекст бросается сразу — первый звук играет в новом', async () => {
+    // Документ с видимостью: игра уходит в фон и возвращается.
+    const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
+    vi.stubGlobal('document', doc);
+    SampleAudioContext.bufs = wavBufs();
+    const mod = await loadSound(2);
+    const first = FakeAudioContext.instances[0]!;
+    // Фон: iOS прерывает аудиосессию, resume() контекст не будит.
+    doc.visibilityState = 'hidden';
+    doc.dispatchEvent(new Event('visibilitychange'));
+    first.state = 'interrupted';
+    first.resume = () => Promise.resolve();
+    doc.visibilityState = 'visible';
+    doc.dispatchEvent(new Event('visibilitychange'));
+    // Застрявший брошен и закрыт ещё до касания.
+    expect(first.state).toBe('closed');
+    mod.playPlace('normal'); // первое касание после возврата
+    expect(FakeAudioContext.instances).toHaveLength(2);
+    expect((FakeAudioContext.instances[1] as SampleAudioContext).started.length).toBe(1);
+  });
+
+  it('возврат из фона с живым контекстом его не трогает', async () => {
+    const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
+    vi.stubGlobal('document', doc);
+    SampleAudioContext.bufs = wavBufs();
+    const mod = await loadSound(2);
+    doc.dispatchEvent(new Event('visibilitychange'));
+    mod.playPlace('normal');
+    expect(FakeAudioContext.instances).toHaveLength(1);
+    expect(FakeAudioContext.instances[0]!.state).toBe('running');
+  });
+
   it('живой running-контекст серией звуков не пересоздаётся', async () => {
     SampleAudioContext.bufs = wavBufs();
     const mod = await loadSound(2);

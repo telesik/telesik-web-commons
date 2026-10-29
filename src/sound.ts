@@ -37,8 +37,32 @@ let samplesLoading = false;
 /** Счётчик подряд идущих звуков, заставших контекст не-running. */
 let ctxStuck = 0;
 
+/** Бросить контекст и закрыть его: незакрытые копятся до предела (см. ensureCtx). */
+function dropCtx(): void {
+  if (ctx && ctx.state !== 'closed') ctx.close().catch(() => {});
+  ctx = null;
+  master = null;
+  ctxStuck = 0;
+}
+
+let watchingVisibility = false;
+
+/**
+ * Возврат из фона: iOS прерывает аудиосессию, и контекст остаётся
+ * не-running. Застрявший бросается сразу, на возврате, — первое касание
+ * создаёт новый в жесте пользователя и звучит, а не уходит в resume().
+ */
+function watchVisibility(): void {
+  if (watchingVisibility || typeof document === 'undefined') return;
+  watchingVisibility = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && ctx && ctx.state !== 'running') dropCtx();
+  });
+}
+
 /** Рабочий аудиоконтекст. Вызывается только при включённом звуке. */
 function ensureCtx(): AudioContext | null {
+  watchVisibility();
   // 'closed' необратим (resume() из него не выводит) — например iOS закрывает
   // контекст WKWebView, пока поверх показан SFSafariViewController.
   // master привязан к старому ctx.destination, тоже пересоздаётся ниже в out().
@@ -53,12 +77,7 @@ function ensureCtx(): AudioContext | null {
   // AudioContext не создаётся вовсе, звука нет до перезапуска. Так бывает,
   // когда звуки идут сериями вне жеста пользователя (проведение пальцем):
   // новый контекст там тоже не запускается и тут же признаётся застрявшим.
-  if (ctx && (ctx.state === 'closed' || (ctx.state !== 'running' && ctxStuck >= 1))) {
-    if (ctx.state !== 'closed') ctx.close().catch(() => {});
-    ctx = null;
-    master = null;
-    ctxStuck = 0;
-  }
+  if (ctx && (ctx.state === 'closed' || (ctx.state !== 'running' && ctxStuck >= 1))) dropCtx();
   if (!ctx) {
     try {
       ctx = new AudioContext();
