@@ -6,8 +6,9 @@ export default defineConfig({
   test: {
     // Node 25+ подставляет свой глобальный localStorage (Web Storage; без
     // --localstorage-file — undefined), и он перекрывает localStorage jsdom —
-    // выключаем там, где он есть (telesik/telesik-team#453).
-    poolOptions: { forks: { execArgv: 'localStorage' in globalThis ? ['--no-experimental-webstorage'] : [] } },
+    // выключаем там, где он есть (telesik/telesik-team#453). В vitest 4
+    // execArgv — опция верхнего уровня (poolOptions убраны, #854).
+    execArgv: 'localStorage' in globalThis ? ['--no-experimental-webstorage'] : [],
     include: ['tests/**/*.test.ts'],
     coverage: {
       provider: 'v8',
