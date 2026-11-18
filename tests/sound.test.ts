@@ -310,6 +310,23 @@ describe('sound.ts — записи: разметка и сэмпловое пр
     expect(Math.abs(ctx.started[0]!.args[1]! - 1.49)).toBeLessThan(0.06);
   });
 
+  it('записи загружены, но в коробке нет пачек — добор синтезом, без новой загрузки', async () => {
+    SampleAudioContext.bufs['box'] = makeBuf([[2, 0]]); // тишина: findBursts пуст
+    let fetches = 0;
+    vi.stubGlobal('fetch', (url: string) => {
+      fetches++;
+      const tag = ['place-1', 'place-2', 'box', 'shuffle'].find((t) => url.includes(t));
+      return Promise.resolve({ arrayBuffer: () => Promise.resolve(tag) });
+    });
+    const { playDraw } = await loadSound();
+    const ctx = ctxOf();
+    const loaded = fetches;
+    playDraw();
+    expect(ctx.oscillators).toBeGreaterThan(0); // синтез стука
+    expect(ctx.started.every((s) => !(s.buffer instanceof FakeAudioBuffer))).toBe(true);
+    expect(fetches).toBe(loaded); // записи уже есть — повторно не грузятся
+  });
+
   it('нулевая запись размечается всем буфером и играет без ошибок', async () => {
     const { playShuffle } = await loadSound();
     const ctx = ctxOf();
@@ -411,6 +428,31 @@ describe('sound.ts — платформенные фолбэки звука', ()
     const second = FakeAudioContext.instances[1] as SampleAudioContext;
     // Кэш записей пережил замену: играет запись в НОВОМ контексте.
     expect(second.started.length).toBe(1);
+  });
+
+  it('отказ resume() и close() застрявшего контекста проглатывается — звук не падает', async () => {
+    SampleAudioContext.bufs = wavBufs();
+    const mod = await loadSound(2);
+    const first = FakeAudioContext.instances[0]!;
+    // WebKit может отвергнуть и resume(), и close() (InvalidStateError).
+    first.state = 'interrupted';
+    let resumeRejected = 0;
+    let closeRejected = 0;
+    first.resume = () => {
+      resumeRejected++;
+      return Promise.reject(new Error('resume отвергнут'));
+    };
+    first.close = () => {
+      closeRejected++;
+      return Promise.reject(new Error('close отвергнут'));
+    };
+    mod.playPlace('normal'); // такт 1: resume отвергнут
+    mod.playPlace('normal'); // такт 2: контекст бросается, close отвергнут
+    await flushLoad(); // отказы обработаны — без необработанных отклонений
+    expect(resumeRejected).toBe(1);
+    expect(closeRejected).toBe(1);
+    expect(FakeAudioContext.instances).toHaveLength(2);
+    expect((FakeAudioContext.instances[1] as SampleAudioContext).started.length).toBe(1);
   });
 
   it('застрявшие контексты при замене закрываются — не копятся до предела системы', async () => {

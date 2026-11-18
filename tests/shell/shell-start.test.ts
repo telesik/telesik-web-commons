@@ -308,6 +308,20 @@ describe('каркас: стартовая карточка', () => {
     expect(q('#version-badge').innerHTML).toContain('версия [en]');
   });
 
+  it('сохраняемого поля игры и имени нет на карточке — перерисовка ставит значения по умолчанию', () => {
+    // Карточку мог перестроить сторонний код: поля keepFields и #inp-n0 нет —
+    // переносить нечего, свежая карточка остаётся со своими значениями.
+    mountApp({ prefs: { howtoShown: true, opponent: 'human' } });
+    q('#inp-hidden').remove();
+    q('#inp-n0').remove();
+    setValue('#inp-opp', 'easy');
+    expect(q<HTMLInputElement>('#inp-hidden').checked).toBe(false);
+    expect(q<HTMLInputElement>('#inp-n0').value).toBe('Игрок 1');
+    q('#inp-hidden').remove();
+    setValue('#inp-lang-start', 'en');
+    expect(q<HTMLInputElement>('#inp-hidden').checked).toBe(false);
+  });
+
   it('смена языка: имена по умолчанию не запоминаются; игра без сохраняемых галочек', () => {
     const m = mountApp({ prefs: { howtoShown: true, opponent: 'human' }, view: { bare: true } });
     setValue('#inp-lang-start', 'en');

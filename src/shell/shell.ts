@@ -346,6 +346,8 @@ export function initShell<
   const saved = matchSave<Match>(store, LS_KEY, { v: 2, validate: (raw) => view.validateSaved(raw) });
 
   function persist(): void {
+    // Недостижимо без матча: все вызовы — после проверки или присваивания match.
+    /* v8 ignore else -- @preserve */
     if (match) saved.save(match);
   }
 
@@ -582,6 +584,8 @@ export function initShell<
     renderAll();
     if (placedSeq !== null) {
       // Перетянутая кость уже стоит на своей тени — долетает оттуда, а не из руки.
+      // Недостижимо: flyFrom задан для каждого хода-выкладки, а placedSeqOf по контракту не null только у неё.
+      /* v8 ignore else -- @preserve */
       if (flyFrom) flyPlacement(placedSeq, view.placedValues(round, placedSeq), flyStart ?? handPose(flyFrom));
       // Автомасштаб сам держит всё в кадре; без него доводим кость минимальным
       // сдвигом — после смены раскладки она могла уехать за край.
@@ -768,6 +772,8 @@ export function initShell<
 
     // Перерисовка не должна сбрасывать ручную прокрутку руки…
     const cont = el.querySelector<HTMLElement>('.hand-tiles');
+    // Недостижимо: .hand-tiles только что записан в el.innerHTML строкой выше.
+    /* v8 ignore else -- @preserve */
     if (cont) {
       cont.scrollLeft = prevScroll;
       // …а в начале своего хода рука мягко подъезжает к первой играбельной
@@ -777,6 +783,8 @@ export function initShell<
         if (handAutoScrollKey !== key) {
           handAutoScrollKey = key;
           const first = cont.querySelector<HTMLElement>('.hand-tile.playable');
+          // Недостижимо: playable.size > 0: играбельные кости этой руки только что отрисованы с классом playable.
+          /* v8 ignore else -- @preserve */
           if (first) {
             const x = first.getBoundingClientRect().left - cont.getBoundingClientRect().left + cont.scrollLeft;
             const fits = x >= cont.scrollLeft + 4 && x + first.offsetWidth <= cont.scrollLeft + cont.clientWidth - 4;
@@ -1015,6 +1023,8 @@ export function initShell<
     const slider = document.querySelector<HTMLInputElement>('#replay-slider');
     if (slider && slider.value !== String(rp.step)) slider.value = String(rp.step);
     const pos = document.querySelector<HTMLElement>('#replay-pos');
+    // Недостижимо: #replay-pos отрисован вместе с панелью истории (barKey), отдельно не пропадает.
+    /* v8 ignore else -- @preserve */
     if (pos) pos.textContent = T().historyPos(rp.step, total);
   }
 
@@ -1378,6 +1388,8 @@ export function initShell<
     const fromRect = spriteEl.getBoundingClientRect();
     // Спрайт гаснет до рендера: кликнутая кость исчезает из кучи, клон летит.
     const sprite = pileSprites[spriteIdx];
+    // Недостижимо: spriteIdx — data-pile отрисованного спрайта той же кучи pileSprites.
+    /* v8 ignore else -- @preserve */
     if (sprite) sprite.alive = false;
     dispatch(draw);
     playDraw();
@@ -1518,6 +1530,8 @@ export function initShell<
       const hidden = dragHidden;
       renderAll();
       const home = handTileEl(d.player, d.tile);
+      // Недостижимо: ход не применён: перетаскиваемая кость после renderAll по-прежнему в руке.
+      /* v8 ignore else -- @preserve */
       if (home) {
         clone.classList.add('returning');
         placeDragClone(d, clone, handPose(home.getBoundingClientRect()), false);
@@ -1592,6 +1606,8 @@ export function initShell<
         return;
       }
     }
+    // Недостижимо: beginDrag вернул true — значит, d.clone уже задан.
+    /* v8 ignore else -- @preserve */
     if (d.clone) moveDrag(d, d.clone, ev.clientX, ev.clientY);
   });
   document.addEventListener('pointerup', (ev) => {
@@ -1649,6 +1665,8 @@ export function initShell<
       const zone = pileZone(elBoneyard, pileSprites);
       if (zone && ev.clientX >= zone.l && ev.clientX <= zone.r && ev.clientY >= zone.t && ev.clientY <= zone.b) {
         const near = nearestPileSprite(elBoneyard, ev.clientX, ev.clientY);
+        // Недостижимо: зона кучи есть только при отрисованных .pile-tile — ближайший найдётся всегда.
+        /* v8 ignore else -- @preserve */
         if (near) {
           onPileClick(near.idx, near.el);
           return;
